@@ -23,4 +23,4 @@ __version__ = '0.17.0'
 from .helpers import url_for
 from .manager import APIManager
 from .manager import IllegalArgumentError
-from .views import ProcessingException
+from .views import ProcessingException, NotAuthorizedException
