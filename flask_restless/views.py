@@ -102,6 +102,14 @@ class ProcessingException(HTTPException):
         self.code = code
         self.description = description
 
+class NotAuthorizedException(HTTPException):
+    """Raised whenever you want a 403.
+
+    """
+    def __init__(self, description='Not Authorized', code=403, *args, **kwargs):
+        super(ProcessingException, self).__init__(*args, **kwargs)
+        self.code = code
+        self.description = description
 
 class ValidationError(Exception):
     """Raised when there is a problem deserializing a dictionary into an
@@ -1174,6 +1182,8 @@ class API(ModelView):
             return dict(message='No result found'), 404
         except MultipleResultsFound:
             return dict(message='Multiple results found'), 400
+        except NotAuthorizedException:
+            return dict(message='Not Authorized'), 403
         except Exception as exception:
             current_app.logger.exception(str(exception))
             return dict(message='Unable to construct query'), 400
@@ -1546,6 +1556,8 @@ class API(ModelView):
             try:
                 # create a SQLALchemy Query from the query parameter `q`
                 query = create_query(self.session, self.model, search_params)
+            except NotAuthorizedException:
+                return dict(message='Not Authorized'), 403
             except Exception as exception:
                 current_app.logger.exception(str(exception))
                 return dict(message='Unable to construct query'), 400
