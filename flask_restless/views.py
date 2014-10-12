@@ -107,7 +107,7 @@ class NotAuthorizedException(HTTPException):
 
     """
     def __init__(self, description='Not Authorized', code=403, *args, **kwargs):
-        super(ProcessingException, self).__init__(*args, **kwargs)
+        super(NotAuthorizedException, self).__init__(*args, **kwargs)
         self.code = code
         self.description = description
 
