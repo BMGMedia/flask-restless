@@ -1149,7 +1149,9 @@ class API(ModelView):
             return dict(message='Unable to decode data'), 400
 
         for preprocessor in self.preprocessors['GET_MANY']:
-            preprocessor(search_params=search_params)
+            returned_values = preprocessor(search_params=search_params)
+            if returned_values:
+                search_params = returned_values
 
         # resolve date-strings as required by the model
         for param in search_params.get('filters', list()):
@@ -1223,7 +1225,9 @@ class API(ModelView):
             headers = dict(Location=url)
 
         for postprocessor in self.postprocessors['GET_MANY']:
-            postprocessor(result=result, search_params=search_params)
+            returned_values = postprocessor(result=result, search_params=search_params)
+            if returned_values:
+                result, search_params = returned_values
 
         # HACK Provide the headers directly in the result dictionary, so that
         # the :func:`jsonpify` function has access to them. See the note there
@@ -1248,16 +1252,9 @@ class API(ModelView):
         if instid is None:
             return self._search()
         for preprocessor in self.preprocessors['GET_SINGLE']:
-            temp_result = preprocessor(instance_id=instid)
-            # Let the return value of the preprocessor be the new value of
-            # instid, thereby allowing the preprocessor to effectively specify
-            # which instance of the model to process on.
-            #
-            # We assume that if the preprocessor returns None, it really just
-            # didn't return anything, which means we shouldn't overwrite the
-            # instid.
-            if temp_result is not None:
-                instid = temp_result
+            returned_values = preprocessor(instance_id=instid)
+            if returned_values:
+                instid = returned_values
         # get the instance of the "main" model whose ID is instid
         instance = get_by(self.session, self.model, instid, self.primary_key)
         if instance is None:
@@ -1374,13 +1371,11 @@ class API(ModelView):
             # filters.
             return self._delete_many()
         was_deleted = False
-        for preprocessor in self.preprocessors['DELETE_SINGLE']:
-            temp_result = preprocessor(instance_id=instid,
-                                       relation_name=relationname,
-                                       relation_instance_id=relationinstid)
-            # See the note under the preprocessor in the get() method.
-            if temp_result is not None:
-                instid = temp_result
+        for preprocessor in self.preprocessors['DELETE']:
+            returned_values =preprocessor(instance_id=instid, relation_name=relationname,
+                         relation_instance_id=relationinstid)
+            if returned_values:
+                instid, relationname, relationinstid = returned_values
         inst = get_by(self.session, self.model, instid, self.primary_key)
         if relationname:
             # If the request is ``DELETE /api/person/1/computers``, error 400.
@@ -1449,7 +1444,9 @@ class API(ModelView):
 
         # apply any preprocessors to the POST arguments
         for preprocessor in self.preprocessors['POST']:
-            preprocessor(data=data)
+            returned_values = preprocessor(data=data)
+            if returned_values:
+                data = returned_values
 
         try:
             # Convert the dictionary representation into an instance of the
@@ -1537,13 +1534,14 @@ class API(ModelView):
             # dictionary indicate a change in the model's field.
             search_params = data.pop('q', {})
             for preprocessor in self.preprocessors['PATCH_MANY']:
-                preprocessor(search_params=search_params, data=data)
+                returned_values = preprocessor(search_params=search_params, data=data)
+                if returned_values:
+                    search_params, data = returned_values
         else:
             for preprocessor in self.preprocessors['PATCH_SINGLE']:
-                temp_result = preprocessor(instance_id=instid, data=data)
-                # See the note under the preprocessor in the get() method.
-                if temp_result is not None:
-                    instid = temp_result
+                returned_values = preprocessor(instance_id=instid, data=data)
+                if returned_values:
+                    instid, data = returned_values
 
         # Check for any request parameter naming a column which does not exist
         # on the current model.
