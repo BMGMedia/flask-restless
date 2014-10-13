@@ -1225,9 +1225,8 @@ class API(ModelView):
             headers = dict(Location=url)
 
         for postprocessor in self.postprocessors['GET_MANY']:
-            returned_values = postprocessor(result=result, search_params=search_params)
-            if returned_values:
-                result, search_params = returned_values
+            postprocessor(result=result, search_params=search_params)
+
 
         # HACK Provide the headers directly in the result dictionary, so that
         # the :func:`jsonpify` function has access to them. See the note there
