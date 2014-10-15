@@ -1225,7 +1225,9 @@ class API(ModelView):
             headers = dict(Location=url)
 
         for postprocessor in self.postprocessors['GET_MANY']:
-            postprocessor(result=result, search_params=search_params)
+            returned_value = postprocessor(result=result, search_params=search_params)
+            if returned_value:
+                    result = returned_value
 
 
         # HACK Provide the headers directly in the result dictionary, so that
@@ -1454,9 +1456,29 @@ class API(ModelView):
             # Add the created model to the session.
             self.session.add(instance)
             self.session.commit()
-            # Get the dictionary representation of the new instance as it
-            # appears in the database.
+            # Get the dictionary representation of the new instance.
             result = self.serialize(instance)
+            # Determine the value of the primary key for this instance and
+            # encode URL-encode it (in case it is a Unicode string).
+            pk_name = self.primary_key or primary_key_name(instance)
+            primary_key = result[pk_name]
+            try:
+                primary_key = str(primary_key)
+            except UnicodeEncodeError:
+                primary_key = url_quote_plus(primary_key.encode('utf-8'))
+
+            # The URL at which a client can access the newly created instance
+            # of the model.
+            url = '{0}/{1}'.format(request.base_url, primary_key)
+            # Provide that URL in the Location header in the response.
+            headers = dict(Location=url)
+
+            for postprocessor in self.postprocessors['POST']:
+                returned_value = postprocessor(result=result)
+                if returned_value:
+                    result = returned_value
+
+            return result, 201, headers
         except self.validation_exceptions as exception:
             return self._handle_validation_exception(exception)
         # Determine the value of the primary key for this instance and
@@ -1595,12 +1617,16 @@ class API(ModelView):
         if patchmany:
             result = dict(num_modified=num_modified)
             for postprocessor in self.postprocessors['PATCH_MANY']:
-                postprocessor(query=query, result=result,
+                returned_value =  postprocessor(query=query, result=result,
                               search_params=search_params)
+                if returned_value:
+                    result = returned_value
         else:
             result = self._instid_to_dict(instid)
             for postprocessor in self.postprocessors['PATCH_SINGLE']:
-                postprocessor(result=result)
+                returned_value = postprocessor(result=result)
+                if returned_value:
+                    result = returned_value
 
         return result
 
