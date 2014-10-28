@@ -1284,7 +1284,9 @@ class API(ModelView):
         if result is None:
             return {_STATUS: 404}, 404
         for postprocessor in self.postprocessors['GET_SINGLE']:
-            postprocessor(result=result)
+            returned_value = postprocessor(result=result)
+            if returned_value:
+                result = returned_value
         return result
 
     def _delete_many(self):
